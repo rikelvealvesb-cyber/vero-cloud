@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VERO CLOUD — Painel Monocromático RTDB</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        darkBg: '#000000',
+        darkCard: '#0a0a0a',
+        darkBorder: '#262626'
+      }
+    }
+  }
+}
+</script>
+<!-- FontAwesome Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; background-color: #000000; color: #ffffff; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #000000; }
+  ::-webkit-scrollbar-thumb { background: #262626; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #ffffff; }
+</style>
+</head>
+<body class="bg-darkBg text-white min-h-screen flex flex-col selection:bg-white selection:text-black">
+
+<!-- Toast Notification Container -->
+<div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+<!-- MAIN APP WRAPPER -->
+<div id="app-wrapper" class="flex-1 flex flex-col">
+
+<!-- Top Navbar -->
+<header class="h-16 bg-darkCard border-b border-darkBorder flex items-center justify-between px-4 lg:px-8 sticky top-0 z-40">
+  <div class="flex items-center gap-4">
+    <button onclick="toggleSidebar()" class="lg:hidden text-gray-400 hover:text-white text-xl p-2"><i class="fa-solid fa-bars"></i></button>
+    <div class="flex items-center gap-2 font-bold text-lg text-white">
+      <span class="w-8 h-8 rounded-lg bg-white/10 text-white flex items-center justify-center border border-white/20"><i class="fa-solid fa-server"></i></span>
+      <span>VERO CLOUD</span>
+      <span class="text-xs bg-white/10 text-white px-2.5 py-0.5 rounded-full border border-white/20 hidden sm:inline flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span> RTDB Conectado
+      </span>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-4">
+    <button onclick="openServerModal()" class="hidden sm:flex items-center gap-2 bg-white hover:bg-gray-200 text-black text-xs font-semibold px-4 py-2.5 rounded-xl shadow transition">
+      <i class="fa-solid fa-plus"></i> Criar Novo Servidor
+    </button>
+
+    <div class="relative">
+      <button onclick="toggleUserDropdown()" class="flex items-center gap-3 bg-darkCard border border-darkBorder px-3 py-1.5 rounded-xl hover:border-gray-500 transition">
+        <div class="w-8 h-8 rounded-lg bg-white text-black font-bold flex items-center justify-center text-xs">AD</div>
+        <div class="text-left hidden md:block">
+          <div class="text-xs font-bold text-white">Administrador</div>
+          <div class="text-[10px] text-gray-400 font-mono">Modo Seguro</div>
+        </div>
+        <i class="fa-solid fa-chevron-down text-xs text-gray-400"></i>
+      </button>
+
+      <div id="user-dropdown" class="absolute right-0 mt-2 w-56 bg-darkCard border border-darkBorder rounded-xl shadow-2xl py-2 hidden z-50">
+        <div class="px-4 py-2 border-b border-darkBorder">
+          <p class="text-xs text-gray-400">Status do Sistema</p>
+          <p class="text-[10px] font-mono text-white">Operando em RTDB Direto</p>
+        </div>
+        <a href="#" onclick="switchView('profile'); closeUserDropdown();" class="flex items-center gap-2 px-4 py-2 text-xs text-gray-300 hover:bg-white/10 transition"><i class="fa-solid fa-user-gear w-4"></i> Configurações</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Main Layout Body -->
+<div class="flex-1 flex relative">
+
+<!-- Sidebar Navigation -->
+<aside id="sidebar" class="fixed lg:static inset-y-0 left-0 z-30 w-64 bg-darkCard border-r border-darkBorder transform -translate-x-full lg:translate-x-0 transition-transform duration-300 flex flex-col">
+  <div class="p-4 border-b border-darkBorder flex items-center justify-between lg:hidden">
+    <span class="font-bold text-white">Navegação</span>
+    <button onclick="toggleSidebar()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-4 space-y-6">
+    <div>
+      <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">Geral</p>
+      <nav class="space-y-1">
+        <button onclick="switchView('dashboard')" id="nav-btn-dashboard" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-black bg-white shadow transition">
+          <i class="fa-solid fa-chart-line w-5 text-center"></i> Dashboard
+        </button>
+        <button onclick="switchView('servers')" id="nav-btn-servers" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-server w-5 text-center"></i> Meus Servidores
+        </button>
+        <button onclick="switchView('keys')" id="nav-btn-keys" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-key w-5 text-center"></i> Chaves de Acesso
+        </button>
+      </nav>
+    </div>
+
+    <div>
+      <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">Ferramentas DB</p>
+      <nav class="space-y-1">
+        <button onclick="switchView('database')" id="nav-btn-database" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-database w-5 text-center"></i> Banco de Dados RTDB
+        </button>
+        <button onclick="switchView('files')" id="nav-btn-files" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-folder-open w-5 text-center"></i> Arquivos no DB
+        </button>
+        <button onclick="switchView('monitor')" id="nav-btn-monitor" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-heart-pulse w-5 text-center"></i> Monitoramento
+        </button>
+        <button onclick="switchView('logs')" id="nav-btn-logs" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-clock-rotate-left w-5 text-center"></i> Logs & Auditoria
+        </button>
+      </nav>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Content Area -->
+<main class="flex-1 p-4 lg:p-8 overflow-y-auto bg-darkBg">
+
+  <!-- VIEW 1: DASHBOARD -->
+  <section id="view-dashboard" class="space-y-6">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-white">Dashboard do Desenvolvedor</h2>
+        <p class="text-xs text-gray-400">Visão geral da infraestrutura conectada ao Realtime Database.</p>
+      </div>
+      <button onclick="openServerModal()" class="sm:hidden flex items-center gap-2 bg-white text-black text-xs font-semibold px-4 py-2.5 rounded-xl shadow">
+        <i class="fa-solid fa-plus"></i> Criar Novo Servidor
+      </button>
+    </div>
+
+    <!-- Metrics Cards Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div class="bg-darkCard border border-darkBorder p-4 rounded-2xl shadow-sm">
+        <div class="text-gray-400 text-xs mb-1">Total Servidores</div>
+        <div id="stat-total-servers" class="text-2xl font-bold text-white">0</div>
+      </div>
+      <div class="bg-darkCard border border-darkBorder p-4 rounded-2xl shadow-sm">
+        <div class="text-gray-400 text-xs mb-1">Servidores Ativos</div>
+        <div id="stat-active-servers" class="text-2xl font-bold text-white">0</div>
+      </div>
+      <div class="bg-darkCard border border-darkBorder p-4 rounded-2xl shadow-sm">
+        <div class="text-gray-400 text-xs mb-1">Servidores Pausados</div>
+        <div id="stat-paused-servers" class="text-2xl font-bold text-gray-400">0</div>
+      </div>
+      <div class="bg-darkCard border border-darkBorder p-4 rounded-2xl shadow-sm">
+        <div class="text-gray-400 text-xs mb-1">Total Requisições</div>
+        <div id="stat-total-reqs" class="text-2xl font-bold text-white">0</div>
+      </div>
+      <div class="bg-darkCard border border-darkBorder p-4 rounded-2xl shadow-sm">
+        <div class="text-gray-400 text-xs mb-1">Modo Storage</div>
+        <div class="text-2xl font-bold text-gray-300">RTDB</div>
+      </div>
+      <div class="bg-darkCard border border-darkBorder p-4 rounded-2xl shadow-sm">
+        <div class="text-gray-400 text-xs mb-1">Chaves Ativas</div>
+        <div id="stat-keys" class="text-2xl font-bold text-white">0</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 bg-darkCard border border-darkBorder rounded-2xl p-6 shadow-sm">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-white text-sm">Seus Mini Servidores</h3>
+          <button onclick="switchView('servers')" class="text-xs text-gray-400 hover:text-white underline">Ver todos</button>
+        </div>
+        <div id="dashboard-servers-list" class="space-y-3">
+          <div class="text-center py-8 text-xs text-gray-500">Carregando servidores...</div>
+        </div>
+      </div>
+
+      <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 shadow-sm flex flex-col">
+        <h3 class="font-bold text-white text-sm mb-4">Logs Recentes</h3>
+        <div id="dashboard-logs-list" class="space-y-3 flex-1 overflow-y-auto max-h-[300px]">
+          <div class="text-center py-8 text-xs text-gray-500">Nenhum evento recente.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW 2: SERVERS LIST -->
+  <section id="view-servers" class="space-y-6 hidden">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-white">Gerenciamento de Servidores</h2>
+        <p class="text-xs text-gray-400">Instâncias criadas no Realtime Database.</p>
+      </div>
+      <button onclick="openServerModal()" class="flex items-center gap-2 bg-white text-black text-xs font-semibold px-4 py-2.5 rounded-xl shadow">
+        <i class="fa-solid fa-plus"></i> Novo Servidor
+      </button>
+    </div>
+
+    <div id="servers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </section>
+
+  <!-- VIEW 3: SERVER DETAIL & MANAGEMENT -->
+  <section id="view-server-detail" class="space-y-6 hidden">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <button onclick="switchView('servers')" class="w-9 h-9 rounded-xl bg-darkCard border border-darkBorder flex items-center justify-center text-gray-400 hover:text-white transition">
+          <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 id="detail-server-name" class="text-xl font-bold text-white">Nome do Servidor</h2>
+            <span id="detail-server-status" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white border border-white/20">Ativo</span>
+          </div>
+          <p id="detail-server-id" class="text-xs font-mono text-gray-400">ID: server_id_123</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="deleteServer(window.selectedServerId)" class="px-3 py-2 bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-semibold rounded-xl text-white transition"><i class="fa-solid fa-trash"></i> Excluir</button>
+      </div>
+    </div>
+
+    <!-- Server Sub-navigation Tabs -->
+    <div class="flex overflow-x-auto gap-2 bg-darkCard p-1.5 rounded-2xl border border-darkBorder">
+      <button onclick="switchServerTab('overview')" id="st-btn-overview" class="px-4 py-2 text-xs font-semibold rounded-xl bg-white text-black whitespace-nowrap transition">Visão Geral</button>
+      <button onclick="switchServerTab('database')" id="st-btn-database" class="px-4 py-2 text-xs font-semibold rounded-xl text-gray-400 hover:text-white whitespace-nowrap transition">Banco de Dados</button>
+      <button onclick="switchServerTab('keys')" id="st-btn-keys" class="px-4 py-2 text-xs font-semibold rounded-xl text-gray-400 hover:text-white whitespace-nowrap transition">Chaves de Acesso</button>
+      <button onclick="switchServerTab('connection')" id="st-btn-connection" class="px-4 py-2 text-xs font-semibold rounded-xl text-gray-400 hover:text-white whitespace-nowrap transition">Conectar Projeto</button>
+    </div>
+
+    <!-- Server Tab: Overview -->
+    <div id="st-tab-overview" class="space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-darkCard border border-darkBorder rounded-2xl p-6">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tipo de Projeto</h3>
+          <p id="detail-project-type" class="text-sm font-bold text-white">Jogos HTML</p>
+        </div>
+        <div class="bg-darkCard border border-darkBorder rounded-2xl p-6">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Backend Firebase</h3>
+          <p class="text-sm font-bold text-white">RTDB Ativo</p>
+        </div>
+        <div class="bg-darkCard border border-darkBorder rounded-2xl p-6">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Requisições</h3>
+          <p id="detail-req-count" class="text-sm font-bold text-white">0</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Server Tab: Database Manager -->
+    <div id="st-tab-database" class="space-y-6 hidden">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-darkCard border border-darkBorder p-6 rounded-2xl">
+        <div>
+          <h3 class="font-bold text-white text-sm">Gerenciamento Direto de Dados JSON</h3>
+          <p class="text-xs text-gray-400">Adicione, edite e remova registros salvos no servidor em tempo real.</p>
+        </div>
+        <button onclick="openAddRecordModal()" class="px-3 py-2 bg-white text-black hover:bg-gray-200 text-xs font-semibold rounded-xl transition"><i class="fa-solid fa-plus mr-1"></i> Novo Registro</button>
+      </div>
+
+      <div class="bg-darkCard border border-darkBorder rounded-2xl p-6">
+        <div id="db-records-container" class="space-y-3">
+          <div class="text-center py-8 text-xs text-gray-500">Nenhum registro encontrado.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Server Tab: Access Keys -->
+    <div id="st-tab-keys" class="space-y-6 hidden">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-darkCard border border-darkBorder p-6 rounded-2xl">
+        <div>
+          <h3 class="font-bold text-white text-sm">Chaves de Acesso Únicas</h3>
+          <p class="text-xs text-gray-400">Gerencie credenciais para este servidor.</p>
+        </div>
+        <button onclick="openKeyModal()" class="px-4 py-2 bg-white text-black hover:bg-gray-200 text-xs font-semibold rounded-xl transition"><i class="fa-solid fa-key mr-2"></i> Gerar Chave</button>
+      </div>
+      <div id="server-keys-list" class="space-y-3"></div>
+    </div>
+
+    <!-- Server Tab: Connection Hub -->
+    <div id="st-tab-connection" class="space-y-6 hidden">
+      <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 space-y-4">
+        <h3 class="font-bold text-white text-base">Snippet de Conexão Externa</h3>
+        <pre class="bg-black border border-darkBorder p-4 rounded-xl text-xs mono text-gray-300 overflow-x-auto"><code>const VERO_CONFIG = {
+  databaseURL: "https://subjectrobot-49600-default-rtdb.firebaseio.com",
+  serverId: "SEU_SERVER_ID"
+};</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW 4: KEYS MANAGEMENT -->
+  <section id="view-keys" class="space-y-6 hidden">
+    <div class="flex justify-between items-center">
+      <div>
+        <h2 class="text-xl font-bold text-white">Chaves de Acesso Globais</h2>
+      </div>
+      <button onclick="openKeyModal()" class="px-4 py-2 bg-white text-black text-xs font-semibold rounded-xl transition"><i class="fa-solid fa-key mr-2"></i> Nova Chave</button>
+    </div>
+    <div id="global-keys-list" class="space-y-3"></div>
+  </section>
+
+  <!-- VIEW 5: DATABASE MANAGER -->
+  <section id="view-database" class="space-y-6 hidden">
+    <div>
+      <h2 class="text-xl font-bold text-white">Banco de Dados Geral</h2>
+      <p class="text-xs text-gray-400">Selecione um servidor em "Meus Servidores" para gerenciar seus dados.</p>
+    </div>
+  </section>
+
+  <!-- VIEW 6: FILES MANAGER -->
+  <section id="view-files" class="space-y-6 hidden">
+    <div class="flex justify-between items-center">
+      <div>
+        <h2 class="text-xl font-bold text-white">Arquivos no RTDB</h2>
+        <p class="text-xs text-gray-400">Armazenamento direto no banco de dados.</p>
+      </div>
+      <label class="px-4 py-2 bg-white text-black hover:bg-gray-200 text-xs font-semibold rounded-xl cursor-pointer transition">
+        <i class="fa-solid fa-upload mr-2"></i> Enviar Arquivo
+        <input type="file" onchange="handleFileUpload(event)" class="hidden">
+      </label>
+    </div>
+    <div id="files-list-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-darkCard border border-darkBorder p-6 rounded-2xl text-center col-span-full py-12 text-gray-500 text-xs">
+        Nenhum arquivo enviado.
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW 7: MONITOR -->
+  <section id="view-monitor" class="space-y-6 hidden">
+    <div>
+      <h2 class="text-xl font-bold text-white">Monitoramento do Sistema</h2>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-darkCard border border-darkBorder rounded-2xl p-6">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Status da Conexão</h3>
+        <div class="text-lg font-bold text-white">Online (RTDB REST)</div>
+      </div>
+      <div class="bg-darkCard border border-darkBorder rounded-2xl p-6">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Modo de Exibição</h3>
+        <div class="text-lg font-bold text-gray-300">Monocromático</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW 8: LOGS -->
+  <section id="view-logs" class="space-y-6 hidden">
+    <div>
+      <h2 class="text-xl font-bold text-white">Logs & Auditoria</h2>
+    </div>
+    <div class="bg-darkCard border border-darkBorder rounded-2xl p-6">
+      <div id="global-logs-container" class="space-y-2">
+        <div class="text-center py-8 text-xs text-gray-500">Nenhum log gravado.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OTHER HIDDEN VIEWS -->
+  <section id="view-docs" class="space-y-6 hidden"><div class="bg-darkCard border border-darkBorder rounded-2xl p-8"><h2 class="text-xl font-bold text-white">Documentação</h2></div></section>
+  <section id="view-limits" class="space-y-6 hidden"><div class="bg-darkCard border border-darkBorder rounded-2xl p-8"><h2 class="text-xl font-bold text-white">Limites</h2></div></section>
+  <section id="view-profile" class="space-y-6 hidden"><div class="bg-darkCard border border-darkBorder rounded-2xl p-8"><h2 class="text-xl font-bold text-white">Configurações</h2></div></section>
+
+</main>
+</div>
+</div>
+
+<!-- MODALS -->
+<div id="modal-server" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+  <div class="max-w-lg w-full bg-darkCard border border-darkBorder rounded-2xl p-6 shadow-2xl relative space-y-4">
+    <div class="flex justify-between items-center">
+      <h3 class="font-bold text-white text-lg">Criar Novo Servidor</h3>
+      <button onclick="closeServerModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <form onsubmit="handleCreateServer(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-300 mb-1">Nome do Servidor</label>
+        <input type="text" id="srv-name" required placeholder="Ex: Meu Jogo Online" class="w-full bg-black border border-darkBorder rounded-xl px-4 py-2.5 text-xs text-white">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-300 mb-1">Descrição</label>
+        <textarea id="srv-desc" rows="2" class="w-full bg-black border border-darkBorder rounded-xl px-4 py-2.5 text-xs text-white"></textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-300 mb-1">Tipo de Projeto</label>
+        <select id="srv-type" onchange="atualizarDescricaoTipo()" class="w-full bg-black border border-darkBorder rounded-xl px-4 py-2.5 text-xs text-white">
+          <option value="APIs">APIs</option>
+          <option value="Jogos HTML">Jogos HTML</option>
+          <option value="Aplicativos web">Aplicativos Web</option>
+          <option value="Sites">Sites</option>
+          <option value="Sistemas de chat">Sistemas de Chat</option>
+        </select>
+        <!-- Caixa de instrução dinâmica explicativa -->
+        <p id="srv-type-desc" class="text-[11px] text-gray-400 mt-2 bg-black border border-darkBorder p-2.5 rounded-xl">
+          Destinado a endpoints de integração para aplicativos e sistemas externos consultarem parâmetros e dados.
+        </p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-300 mb-1">ID Exclusivo (serverId)</label>
+        <input type="text" id="srv-identifier" required placeholder="Ex: meu-servidor-01" class="w-full bg-black border border-darkBorder rounded-xl px-4 py-2.5 text-xs text-white font-mono">
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeServerModal()" class="px-4 py-2 bg-darkCard border border-darkBorder text-gray-300 text-xs font-semibold rounded-xl">Cancelar</button>
+        <button type="submit" class="px-4 py-2 bg-white text-black text-xs font-semibold rounded-xl">Salvar Servidor</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-key" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+  <div class="max-w-md w-full bg-darkCard border border-darkBorder rounded-2xl p-6 shadow-2xl relative space-y-4">
+    <div class="flex justify-between items-center">
+      <h3 class="font-bold text-white text-lg">Gerar Chave de Acesso</h3>
+      <button onclick="closeKeyModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <form onsubmit="handleCreateKey(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-300 mb-1">Servidor Vinculado</label>
+        <select id="key-server-id" class="w-full bg-black border border-darkBorder rounded-xl px-4 py-2.5 text-xs text-white"></select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-300 mb-1">Tipo</label>
+        <select id="key-type" class="w-full bg-black border border-darkBorder rounded-xl px-4 py-2.5 text-xs text-white">
+          <option value="PUBLIC">Pública</option>
+          <option value="PRIVATE">Privada</option>
+        </select>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeKeyModal()" class="px-4 py-2 bg-darkCard border border-darkBorder text-gray-300 text-xs font-semibold rounded-xl">Cancelar</button>
+        <button type="submit" class="px-4 py-2 bg-white text-black text-xs font-semibold rounded-xl">Gerar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="modal-record" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+  <div class="max-w-lg w-full bg-darkCard border border-darkBorder rounded-2xl p-6 shadow-2xl relative space-y-4">
+    <div class="flex justify-between items-center">
+      <h3 id="modal-record-title" class="font-bold text-white text-lg">Novo Registro JSON</h3>
+      <button onclick="closeAddRecordModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <form onsubmit="handleAddRecord(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-300 mb-1">Chave / Nome do Atributo</label>
+        <input type="text" id="rec-key" required placeholder="Ex: player_001 ou score" class="w-full bg-black border border-darkBorder rounded-xl px-4 py-2.5 text-xs text-white font-mono">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-300 mb-1">Valor JSON</label>
+        <textarea id="rec-value" rows="6" required placeholder='{"pontos": 1500, "nivel": 5}' class="w-full bg-black border border-darkBorder rounded-xl px-4 py-2.5 text-xs text-white font-mono"></textarea>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeAddRecordModal()" class="px-4 py-2 bg-darkCard border border-darkBorder text-gray-300 text-xs font-semibold rounded-xl">Cancelar</button>
+        <button type="submit" class="px-4 py-2 bg-white text-black text-xs font-semibold rounded-xl">Salvar no RTDB</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const DB_URL = "https://subjectrobot-49600-default-rtdb.firebaseio.com";
+  window.selectedServerId = null;
+
+  // Dicionário de descrições para os tipos de projeto
+  const tipoDescricoes = {
+    "APIs": "Destinado a endpoints de integração para aplicativos e sistemas externos consultarem parâmetros e dados.",
+    "Jogos HTML": "Ideal para jogos web salvarem placares (highscores), estados de progresso e dados multiplayer.",
+    "Aplicativos web": "Voltado para PWAs e SPAs que exigem persistência de dados e preferências do usuário.",
+    "Sites": "Perfeito para landing pages e sites comerciais centralizarem formulários e mensagens de clientes.",
+    "Sistemas de chat": "Especializado em gerenciar filas de mensagens em tempo real, salas e históricos de conversas."
+  };
+
+  function atualizarDescricaoTipo() {
+    const select = document.getElementById('srv-type');
+    const descEl = document.getElementById('srv-type-desc');
+    descEl.innerText = tipoDescricoes[select.value] || "Selecione um tipo para ver a descrição.";
+  }
+
+  window.showToast = function(message) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border border-white/20 bg-black text-white text-xs shadow-xl transition-all`;
+    toast.innerHTML = `<i class="fa-solid fa-circle-info text-white text-sm"></i><span class="font-medium">${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  };
+
+  async function rtdbGet(path) {
+    try {
+      const res = await fetch(`${DB_URL}/${path}.json`);
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }
+
+  async function rtdbSet(path, data) {
+    const res = await fetch(`${DB_URL}/${path}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return await res.json();
+  }
+
+  async function rtdbPush(path, data) {
+    const res = await fetch(`${DB_URL}/${path}.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return await res.json();
+  }
+
+  async function rtdbRemove(path) {
+    const res = await fetch(`${DB_URL}/${path}.json`, {
+      method: 'DELETE'
+    });
+    return await res.json();
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    showToast('Painel Conectado com Sucesso!');
+    refreshDashboardData();
+  });
+
+  window.handleCreateServer = async function(e) {
+    e.preventDefault();
+    const name = document.getElementById('srv-name').value.trim();
+    const desc = document.getElementById('srv-desc').value.trim();
+    const projectType = document.getElementById('srv-type').value;
+    const serverId = document.getElementById('srv-identifier').value.trim();
+
+    const newServer = { serverId, name, desc, projectType, status: 'active', createdAt: Date.now(), requestsCount: 0 };
+    await rtdbSet(`servers/${serverId}`, newServer);
+    await rtdbPush('logs', { timestamp: Date.now(), type: 'SERVER_CREATED', serverId });
+
+    closeServerModal();
+    showToast('Servidor criado com sucesso!');
+    refreshDashboardData();
+    switchView('servers');
+  };
+
+  window.handleCreateKey = async function(e) {
+    e.preventDefault();
+    const serverId = document.getElementById('key-server-id').value;
+    const type = document.getElementById('key-type').value;
+    const keyId = 'VERO_' + Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    await rtdbSet(`keys/${keyId}`, { keyId, serverId, type, createdAt: Date.now() });
+    closeKeyModal();
+    renderServerKeys();
+    renderGlobalKeys();
+    showToast('Chave gerada com sucesso!');
+  };
+
+  window.refreshDashboardData = async function() {
+    const serversData = await rtdbGet('servers');
+    const keysData = await rtdbGet('keys');
+    const logsData = await rtdbGet('logs');
+
+    let servers = serversData ? Object.values(serversData) : [];
+    let totalReqs = servers.reduce((acc, s) => acc + (s.requestsCount || 0), 0);
+    let active = servers.filter(s => s.status === 'active').length;
+    let paused = servers.filter(s => s.status !== 'active').length;
+    let keysCount = keysData ? Object.keys(keysData).length : 0;
+
+    document.getElementById('stat-total-servers').innerText = servers.length;
+    document.getElementById('stat-active-servers').innerText = active;
+    document.getElementById('stat-paused-servers').innerText = paused;
+    document.getElementById('stat-total-reqs').innerText = totalReqs;
+    document.getElementById('stat-keys').innerText = keysCount;
+
+    const dbList = document.getElementById('dashboard-servers-list');
+    if (servers.length === 0) {
+      dbList.innerHTML = `<div class="text-center py-6 text-xs text-gray-500">Nenhum servidor cadastrado.</div>`;
+    } else {
+      dbList.innerHTML = servers.slice(0, 3).map(s => `
+        <div class="flex items-center justify-between p-3 bg-black border border-darkBorder rounded-xl">
+          <div>
+            <div class="font-bold text-white text-xs">${s.name}</div>
+            <div class="text-[10px] font-mono text-gray-400">${s.serverId} &bull; ${s.projectType}</div>
+          </div>
+          <button onclick="openServerDetail('${s.serverId}')" class="px-3 py-1.5 bg-white text-black rounded-lg text-xs font-semibold">Gerenciar</button>
+        </div>
+      `).join('');
+    }
+
+    const logsList = document.getElementById('dashboard-logs-list');
+    if (logsData) {
+      let logsArr = Object.values(logsData);
+      logsList.innerHTML = logsArr.reverse().slice(0, 5).map(l => `
+        <div class="bg-black p-2.5 rounded-xl border border-darkBorder text-[11px] font-mono">
+          <span class="text-white">[${l.type}]</span> Servidor: ${l.serverId}
+        </div>
+      `).join('');
+    }
+  };
+
+  window.renderServersList = async function() {
+    const grid = document.getElementById('servers-grid');
+    grid.innerHTML = `<div class="col-span-full text-center py-12 text-xs text-gray-500">Carregando servidores...</div>`;
+
+    const serversData = await rtdbGet('servers');
+    let servers = serversData ? Object.values(serversData) : [];
+
+    if (servers.length === 0) {
+      grid.innerHTML = `<div class="col-span-full text-center py-12 text-xs text-gray-500 bg-darkCard border border-darkBorder rounded-2xl">Nenhum servidor encontrado.</div>`;
+      return;
+    }
+
+    grid.innerHTML = servers.map(s => `
+      <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 flex flex-col justify-between shadow-sm">
+        <div>
+          <div class="flex justify-between items-start mb-3">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-white border border-white/20">ATIVO</span>
+            <span class="text-[10px] font-mono text-gray-400">${s.projectType}</span>
+          </div>
+          <h3 class="font-bold text-white text-base mb-1">${s.name}</h3>
+          <p class="text-xs text-gray-400 mb-4">${s.desc || 'Sem descrição.'}</p>
+          <div class="bg-black px-3 py-2 rounded-xl text-[11px] font-mono text-white mb-4 truncate">ID: ${s.serverId}</div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="openServerDetail('${s.serverId}')" class="flex-1 py-2 bg-white text-black text-xs font-semibold rounded-xl">Abrir Painel</button>
+          <button onclick="deleteServer('${s.serverId}')" class="px-3 py-2 bg-white/5 border border-white/10 text-white text-xs rounded-xl"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    `).join('');
+  };
+
+  window.openServerDetail = async function(serverId) {
+    window.selectedServerId = serverId;
+    const server = await rtdbGet(`servers/${serverId}`);
+    if (!server) return;
+
+    document.getElementById('detail-server-name').innerText = server.name;
+    document.getElementById('detail-server-id').innerText = `ID: ${server.serverId}`;
+    document.getElementById('detail-project-type').innerText = server.projectType;
+    document.getElementById('detail-req-count').innerText = server.requestsCount || 0;
+
+    switchView('server-detail');
+    switchServerTab('overview');
+  };
+
+  window.deleteServer = async function(serverId) {
+    if (!confirm('Deseja excluir este servidor?')) return;
+    await rtdbRemove(`servers/${serverId}`);
+    await rtdbRemove(`serverData/${serverId}`);
+    showToast('Servidor excluído!');
+    renderServersList();
+    switchView('servers');
+  };
+
+  window.handleAddRecord = async function(e) {
+    e.preventDefault();
+    const recKey = document.getElementById('rec-key').value.trim();
+    const recValueRaw = document.getElementById('rec-value').value.trim();
+    try {
+      const parsedValue = JSON.parse(recValueRaw);
+      await rtdbSet(`serverData/${window.selectedServerId}/${recKey}`, parsedValue);
+      closeAddRecordModal();
+      renderDatabaseRecords();
+      showToast('Registro salvo com sucesso!');
+    } catch(err) {
+      showToast('Erro: Formato JSON inválido.');
+    }
+  };
+
+  window.renderDatabaseRecords = async function() {
+    const container = document.getElementById('db-records-container');
+    const records = await rtdbGet(`serverData/${window.selectedServerId}`);
+    if (!records) {
+      container.innerHTML = `<div class="text-center py-8 text-xs text-gray-500">Nenhum registro salvo neste servidor.</div>`;
+      return;
+    }
+    container.innerHTML = Object.keys(records).map(k => `
+      <div class="bg-black border border-darkBorder p-4 rounded-xl flex items-center justify-between">
+        <div class="overflow-hidden mr-4">
+          <div class="font-mono font-bold text-white text-xs mb-1">${k}</div>
+          <pre class="text-[11px] mono text-gray-300 overflow-x-auto">${JSON.stringify(records[k], null, 2)}</pre>
+        </div>
+        <div class="flex gap-2 shrink-0">
+          <button onclick='editarRegistro(${JSON.stringify(k)}, ${JSON.stringify(records[k])})' class="px-3 py-1.5 bg-white text-black rounded-xl text-xs font-semibold">Editar</button>
+          <button onclick="deleteDbRecord('${k}')" class="px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-xl text-xs"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    `).join('');
+  };
+
+  window.editarRegistro = function(key, value) {
+    document.getElementById('modal-record-title').innerText = "Editar Registro JSON";
+    document.getElementById('rec-key').value = key;
+    document.getElementById('rec-key').readOnly = true;
+    document.getElementById('rec-value').value = typeof value === 'object' ? JSON.stringify(value, null, 2) : value;
+    document.getElementById('modal-record').classList.remove('hidden');
+  };
+
+  window.deleteDbRecord = async function(key) {
+    if (!confirm(`Remover o registro "${key}"?`)) return;
+    await rtdbRemove(`serverData/${window.selectedServerId}/${key}`);
+    renderDatabaseRecords();
+    showToast('Registro removido.');
+  };
+
+  window.handleFileUpload = async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function(event) {
+      await rtdbPush('files', { name: file.name, size: (file.size / 1024).toFixed(1) + ' KB', data: event.target.result });
+      renderFilesList();
+      showToast('Arquivo enviado para o RTDB!');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  window.renderFilesList = async function() {
+    const container = document.getElementById('files-list-container');
+    const files = await rtdbGet('files');
+    if (!files) {
+      container.innerHTML = `<div class="bg-darkCard border border-darkBorder p-6 rounded-2xl text-center col-span-full py-12 text-gray-500 text-xs">Nenhum arquivo enviado.</div>`;
+      return;
+    }
+    container.innerHTML = Object.keys(files).map(id => `
+      <div class="bg-darkCard border border-darkBorder p-4 rounded-2xl flex flex-col justify-between">
+        <div>
+          <div class="font-bold text-white text-xs truncate mb-1">${files[id].name}</div>
+          <div class="text-[10px] text-gray-400 mb-4">${files[id].size}</div>
+        </div>
+        <div class="flex gap-2">
+          <a href="${files[id].data}" download="${files[id].name}" class="flex-1 py-1.5 bg-white text-black text-center rounded-xl text-xs font-semibold">Baixar</a>
+          <button onclick="deleteFile('${id}')" class="px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-xl text-xs">Excluir</button>
+        </div>
+      </div>
+    `).join('');
+  };
+
+  window.deleteFile = async function(id) {
+    await rtdbRemove(`files/${id}`);
+    renderFilesList();
+    showToast('Arquivo removido.');
+  };
+
+  window.renderServerKeys = async function() {
+    const container = document.getElementById('server-keys-list');
+    const keysData = await rtdbGet('keys');
+    if (!keysData) {
+      container.innerHTML = `<div class="text-center py-8 text-xs text-gray-500 bg-darkCard border border-darkBorder rounded-2xl">Nenhuma chave gerada.</div>`;
+      return;
+    }
+    let keys = Object.values(keysData).filter(k => k.serverId === window.selectedServerId);
+    container.innerHTML = keys.map(k => `
+      <div class="bg-darkCard border border-darkBorder p-4 rounded-2xl flex items-center justify-between">
+        <span class="font-mono font-bold text-white text-xs">${k.keyId} (${k.type})</span>
+        <button onclick="deleteKey('${k.keyId}')" class="px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-xl text-xs">Revogar</button>
+      </div>
+    `).join('');
+  };
+
+  window.renderGlobalKeys = async function() {
+    const container = document.getElementById('global-keys-list');
+    const keysData = await rtdbGet('keys');
+    if (!keysData) {
+      container.innerHTML = `<div class="text-center py-12 text-xs text-gray-500 bg-darkCard border border-darkBorder rounded-2xl">Nenhuma chave ativa.</div>`;
+      return;
+    }
+    container.innerHTML = Object.values(keysData).map(k => `
+      <div class="bg-darkCard border border-darkBorder p-4 rounded-2xl flex items-center justify-between">
+        <span class="font-mono font-bold text-white text-xs">${k.keyId} - Servidor: ${k.serverId}</span>
+        <button onclick="deleteKey('${k.keyId}')" class="px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-xl text-xs">Revogar</button>
+      </div>
+    `).join('');
+  };
+
+  window.deleteKey = async function(keyId) {
+    await rtdbRemove(`keys/${keyId}`);
+    renderServerKeys();
+    renderGlobalKeys();
+    showToast('Chave revogada.');
+  };
+
+  window.switchView = function(viewName) {
+    ['dashboard', 'servers', 'server-detail', 'keys', 'database', 'files', 'monitor', 'logs', 'docs', 'limits', 'profile'].forEach(v => {
+      const el = document.getElementById(`view-${v}`);
+      if (el) el.classList.add('hidden');
+      const btn = document.getElementById(`nav-btn-${v}`);
+      if (btn) btn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-white hover:bg-white/5 transition";
+    });
+    document.getElementById(`view-${viewName}`).classList.remove('hidden');
+    const activeBtn = document.getElementById(`nav-btn-${viewName}`);
+    if (activeBtn) activeBtn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium text-black bg-white shadow transition";
+
+    if (viewName === 'servers') renderServersList();
+    if (viewName === 'keys') renderGlobalKeys();
+    if (viewName === 'files') renderFilesList();
+  };
+
+  window.switchServerTab = function(tab) {
+    ['overview', 'database', 'keys', 'connection'].forEach(t => {
+      document.getElementById(`st-tab-${t}`).classList.add('hidden');
+      document.getElementById(`st-btn-${t}`).className = "px-4 py-2 text-xs font-semibold rounded-xl text-gray-400 hover:text-white whitespace-nowrap transition";
+    });
+    document.getElementById(`st-tab-${tab}`).classList.remove('hidden');
+    document.getElementById(`st-btn-${tab}`).className = "px-4 py-2 text-xs font-semibold rounded-xl bg-white text-black whitespace-nowrap transition";
+
+    if (tab === 'database') renderDatabaseRecords();
+    if (tab === 'keys') renderServerKeys();
+  };
+
+  window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('-translate-x-full');
+  window.toggleUserDropdown = () => document.getElementById('user-dropdown').classList.toggle('hidden');
+  window.closeUserDropdown = () => document.getElementById('user-dropdown').classList.add('hidden');
+  
+  window.openServerModal = () => {
+    atualizarDescricaoTipo();
+    document.getElementById('modal-server').classList.remove('hidden');
+  };
+  window.closeServerModal = () => document.getElementById('modal-server').classList.add('hidden');
+  
+  window.openKeyModal = () => {
+    const select = document.getElementById('key-server-id');
+    select.innerHTML = `<option value="${window.selectedServerId || ''}">${window.selectedServerId || 'Geral'}</option>`;
+    document.getElementById('modal-key').classList.remove('hidden');
+  };
+  window.closeKeyModal = () => document.getElementById('modal-key').classList.add('hidden');
+  
+  window.openAddRecordModal = () => {
+    document.getElementById('modal-record-title').innerText = "Novo Registro JSON";
+    document.getElementById('rec-key').value = '';
+    document.getElementById('rec-key').readOnly = false;
+    document.getElementById('rec-value').value = '';
+    document.getElementById('modal-record').classList.remove('hidden');
+  };
+  window.closeAddRecordModal = () => document.getElementById('modal-record').classList.add('hidden');
+</script>
+</body>
+</html>
